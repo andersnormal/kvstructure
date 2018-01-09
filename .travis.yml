@@ -1,0 +1,22 @@
+language: go
+
+branches:
+  only:
+    - master
+
+cache:
+  directories:
+    - $GOPATH/src
+    - $GOPATH/pkg
+
+install:
+- make deps
+- make restore
+- export CI=TRAVIS # for gotest to force colors
+
+go:
+  - 1.8
+  - 1.9
+
+script:
+  - make ci

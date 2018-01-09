@@ -1,0 +1,10 @@
+{
+  "generator-go-lang": {
+    "promptValues": {
+      "app": "kvstructure",
+      "vendor": true,
+      "dep": true,
+      "cobra": false
+    }
+  }
+}
