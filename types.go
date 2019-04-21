@@ -2,11 +2,22 @@ package kvstructure
 
 import "github.com/docker/libkv/store"
 
-// TransdecoderConfig is the configuration that is used to create a new transdecoder
-// and allows customization of various aspects of decoding.
-type TransdecoderConfig struct {
-	// mutex *sync.RWMutex
+// Transcoder is the interface to a transcoder
+type Transcoder interface {
+	Transcode(interface{}) error
+}
 
+// Transdecoder is the interface to a transdecoder
+type Transdecoder interface {
+	Transdecode(interface{}) error
+}
+
+// TransdecoderOpt ...
+type TransdecoderOpt func(*TransdecoderOpts)
+
+// TransdecoderOpts is the configuration that is used to create a new transdecoder
+// and allows customization of various aspects of decoding.
+type TransdecoderOpts struct {
 	// ZeroFields, if set to true, will zero fields before writing them.
 	// For example, a map will be emptied before decoded values are put in
 	// it. If this is false, a map will be merged.
@@ -19,10 +30,6 @@ type TransdecoderConfig struct {
 	// the decoding. If this is nil, then no metadata will be tracked.
 	Metadata *Metadata
 
-	// Result is a pointer to the struct that will contain the decoded
-	// value.
-	Result interface{}
-
 	// The tag name that kvstructure reads for field names. This
 	// defaults to "kvstructure"
 	TagName string
@@ -34,15 +41,12 @@ type TransdecoderConfig struct {
 	KV store.Store
 }
 
-// TranscoderConfig is the configuration that is used to create a new transcoder
+// TranscoderOpt ...
+type TranscoderOpt func(*TranscoderOpts)
+
+// TranscoderOpts is the configuration that is used to create a new transcoder
 // and allows customization of various aspects of decoding.
-type TranscoderConfig struct {
-	// mutex *sync.RWMutex
-
-	// Result is a pointer to the struct that will contain the decoded
-	// value.
-	Input interface{}
-
+type TranscoderOpts struct {
 	// Metadata is the struct that will contain extra metadata about
 	// the decoding. If this is nil, then no metadata will be tracked.
 	Metadata *Metadata
@@ -59,13 +63,13 @@ type TranscoderConfig struct {
 }
 
 // A Transdecoder takes a raw interface value and turns it into structured data
-type Transdecoder struct {
-	config *TransdecoderConfig
+type transdecoder struct {
+	opts *TransdecoderOpts
 }
 
 // A Transcoder takes a raw interface and puts it into a kv structure
-type Transcoder struct {
-	config *TranscoderConfig
+type transcoder struct {
+	opts *TranscoderOpts
 }
 
 // Metadata contains information about decoding a structure that

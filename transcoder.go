@@ -13,62 +13,62 @@ import (
 
 // Transcode takes an initialized interface and puts the data in a kv
 func Transcode(s interface{}, prefix string, kv store.Store) error {
-	config := &TranscoderConfig{
-		Prefix:   prefix,
-		KV:       kv,
-		Metadata: nil,
-		Input:    s,
-	}
-
-	transcoder, err := NewTranscoder(config)
+	transcoder, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix(prefix),
+	)
 	if err != nil {
 		return err
 	}
 
-	return transcoder.Transcode()
+	return transcoder.Transcode(s)
 }
 
 // NewTranscoder returns a new transcoder for the given configuration.
 // Once a transcoder has been returned, the same interface must be used
-func NewTranscoder(config *TranscoderConfig) (*Transcoder, error) {
-	val := reflect.ValueOf(config.Input)
+func NewTranscoder(opts ...TranscoderOpt) (Transcoder, error) {
+	options := new(TranscoderOpts)
+
+	t := new(transcoder)
+	t.opts = options
+
+	// configure transcoder
+	configureTranscoder(t, opts...)
+
+	return t, nil
+}
+
+// TranscoderWithPrefix ...
+func TranscoderWithPrefix(prefix string) func(o *TranscoderOpts) {
+	return func(o *TranscoderOpts) {
+		o.Prefix = prefix
+	}
+}
+
+// TranscoderWithKV ...
+func TranscoderWithKV(kv store.Store) func(o *TranscoderOpts) {
+	return func(o *TranscoderOpts) {
+		o.KV = kv
+	}
+}
+
+// Transcode is transcoding a given raw value interface to data in a kv store
+func (t *transcoder) Transcode(s interface{}) error {
+	val := reflect.ValueOf(s)
 	if val.Kind() != reflect.Ptr {
-		return nil, errors.New("input muse be a pointer")
+		return errors.New("kvstructure: interface must be a pointer")
 	}
 
 	val = val.Elem()
 	if !val.CanAddr() {
-		return nil, errors.New("input must be addressable (a pointer)")
+		return errors.New("kvstructure: interface must be addressable (a pointer)")
 	}
 
-	if config.Metadata != nil {
-		if config.Metadata.Keys == nil {
-			config.Metadata.Keys = make([]string, 0)
-		}
-
-		if config.Metadata.Unused == nil {
-			config.Metadata.Unused = make([]string, 0)
-		}
-	}
-
-	if config.TagName == "" {
-		config.TagName = "kvstructure"
-	}
-
-	result := &Transcoder{
-		config: config,
-	}
-
-	return result, nil
-}
-
-// Transcode is transcoding a given raw value interface to data in a kv store
-func (t *Transcoder) Transcode() error {
-	return t.transcode("", reflect.ValueOf(t.config.Input).Elem())
+	return t.transcode("", reflect.ValueOf(s).Elem())
 }
 
 // transcode is doing the heavy lifting in the background
-func (t *Transcoder) transcode(name string, val reflect.Value) error {
+func (t *transcoder) transcode(name string, val reflect.Value) error {
 	var err error
 	valKind := getKind(reflect.Indirect(val))
 	switch valKind {
@@ -89,7 +89,7 @@ func (t *Transcoder) transcode(name string, val reflect.Value) error {
 	// 	err = t.transcodeSlice(name, val)
 	default:
 		// we have to work on here for value to pointed to
-		return fmt.Errorf("Unsupported type %s", valKind)
+		return fmt.Errorf("kvstructure: unsupported type %s", valKind)
 	}
 
 	// should be nil
@@ -97,32 +97,32 @@ func (t *Transcoder) transcode(name string, val reflect.Value) error {
 }
 
 // transdecodeString
-func (t *Transcoder) transcodeString(name string, val reflect.Value) error {
+func (t *transcoder) transcodeString(name string, val reflect.Value) error {
 	return t.putKVPair(name, []byte(val.String()))
 }
 
 // transcodeBool
-func (t *Transcoder) transcodeBool(name string, val reflect.Value) error {
+func (t *transcoder) transcodeBool(name string, val reflect.Value) error {
 	return t.putKVPair(name, []byte(fmt.Sprint(val)))
 }
 
 // transcodeInt
-func (t *Transcoder) transcodeInt(name string, val reflect.Value) error {
+func (t *transcoder) transcodeInt(name string, val reflect.Value) error {
 	return t.putKVPair(name, []byte(fmt.Sprint(val)))
 }
 
 // transdecodeUint
-func (t *Transcoder) transcodeUint(name string, val reflect.Value) error {
+func (t *transcoder) transcodeUint(name string, val reflect.Value) error {
 	return nil
 }
 
 // transdecodeFloat
-func (t *Transcoder) transcodeFloat(name string, val reflect.Value) error {
+func (t *transcoder) transcodeFloat(name string, val reflect.Value) error {
 	return nil
 }
 
 // transdecodeStruct
-func (t *Transcoder) transcodeStruct(name string, val reflect.Value) error {
+func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 	valInterface := reflect.Indirect(val)
 	valType := valInterface.Type()
 
@@ -151,7 +151,7 @@ func (t *Transcoder) transcodeStruct(name string, val reflect.Value) error {
 			fieldType := valType.Field(i)
 			isJSON := false
 
-			tagParts := strings.Split(fieldType.Tag.Get(t.config.TagName), ",")
+			tagParts := strings.Split(fieldType.Tag.Get(t.opts.TagName), ",")
 			for _, tag := range tagParts[1:] {
 				// test here for squashing
 				if tag == "json" {
@@ -168,7 +168,7 @@ func (t *Transcoder) transcodeStruct(name string, val reflect.Value) error {
 		field, val, isJSON := f.field, f.val, f.json
 		kv := strings.ToLower(field.Name)
 
-		tag := field.Tag.Get(t.config.TagName)
+		tag := field.Tag.Get(t.opts.TagName)
 		tag = strings.SplitN(tag, ",", 2)[0]
 		if tag != "" {
 			kv = tag
@@ -221,11 +221,34 @@ func (t *Transcoder) transcodeStruct(name string, val reflect.Value) error {
 
 // transdecodeBasic transdecode a basic type (bool, int, strinc, etc.)
 // and eventually sets it to the retrieved value
-func (t *Transcoder) transdecodeBasic(val reflect.Value) error {
+func (t *transcoder) transdecodeBasic(val reflect.Value) error {
 	return nil
 }
 
 // putKVPair
-func (t *Transcoder) putKVPair(key string, value []byte) error {
-	return t.config.KV.Put(trailingSlash(t.config.Prefix)+key, value, nil)
+func (t *transcoder) putKVPair(key string, value []byte) error {
+	return t.opts.KV.Put(trailingSlash(t.opts.Prefix)+key, value, nil)
+}
+
+// configureTranscoder
+func configureTranscoder(t *transcoder, opts ...TranscoderOpt) error {
+	for _, o := range opts {
+		o(t.opts)
+	}
+
+	if t.opts.Metadata != nil {
+		if t.opts.Metadata.Keys == nil {
+			t.opts.Metadata.Keys = make([]string, 0)
+		}
+
+		if t.opts.Metadata.Unused == nil {
+			t.opts.Metadata.Unused = make([]string, 0)
+		}
+	}
+
+	if t.opts.TagName == "" {
+		t.opts.TagName = "kvstructure"
+	}
+
+	return nil
 }
