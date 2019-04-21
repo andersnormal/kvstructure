@@ -1,0 +1,9 @@
+version: 1
+author: Sebastian Döll <sebastian@katallaxie.me>
+project: kvstructure
+tasks:
+  test:
+    desc: test
+  cmds:
+    - go test -v ./...
+      

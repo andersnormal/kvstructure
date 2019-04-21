@@ -4,21 +4,11 @@
 
 # kvstructure
 
-A golang app created with `yo go-lang`.
+Go library for transcoding data from KVs supported by [libkv](https://github.com/docker/libkv) to `structs` and vice versa.
 
 ## Getting Started
 
-Install neat tools and dependencies.
 
-```
-make deps && make restore
-```
-
-Build the app.
-
-```
-make build
-```
 
 ## License
-[MIT](/LICENSE)
+[Apache 2.0](/LICENSE)
