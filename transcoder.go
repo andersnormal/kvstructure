@@ -174,7 +174,9 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 			kv = tag
 		}
 
-		kv = strings.Join([]string{name, kv}, "/")
+		if name != "" {
+			kv = strings.Join([]string{name, kv}, "/")
+		}
 
 		if !val.CanAddr() {
 			wg.Done()
