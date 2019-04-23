@@ -1,22 +1,14 @@
 language: go
 
-branches:
-  only:
-    - master
-
-cache:
-  directories:
-    - $GOPATH/src
-    - $GOPATH/pkg
-
-install:
-- make deps
-- make restore
-- export CI=TRAVIS # for gotest to force colors
-
-go:
-  - 1.8
-  - 1.9
+matrix:
+  include:
+  - go: 1.11.x
+  - go: 1.12.x
+    env: LATEST=true
+  - go: tip
+  allow_failures:
+  - go: tip
 
 script:
-  - make ci
+  - go vet ./...
+  - go test -v -race ./...

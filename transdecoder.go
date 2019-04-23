@@ -14,7 +14,7 @@ import (
 
 // Transdecode takes an interface and uses reflection
 // to fill it with data from a kv.
-func Transdecode(s interface{}, prefix string, kv store.Store) error {
+func Transdecode(name string, s interface{}, prefix string, kv store.Store) error {
 	transdecoder, err := NewTransdecoder(
 		TransdecoderWithPrefix(prefix),
 		TransdecoderWithKV(kv),
@@ -23,7 +23,7 @@ func Transdecode(s interface{}, prefix string, kv store.Store) error {
 		return err
 	}
 
-	return transdecoder.Transdecode(s)
+	return transdecoder.Transdecode(name, s)
 }
 
 // NewTransdecoder returns a new transdecoder for the given configuration.
@@ -56,7 +56,7 @@ func TransdecoderWithKV(kv store.Store) func(o *TransdecoderOpts) {
 }
 
 // Transdecode transdecodes a given raw interface to a filled structure
-func (t *transdecoder) Transdecode(s interface{}) error {
+func (t *transdecoder) Transdecode(name string, s interface{}) error {
 	val := reflect.ValueOf(s)
 	if val.Kind() != reflect.Ptr {
 		return errors.New("kvstructure: interface must be a pointer")
@@ -67,13 +67,13 @@ func (t *transdecoder) Transdecode(s interface{}) error {
 		return errors.New("kvstructure: interface must be addressable (a pointer)")
 	}
 
-	return t.transdecode("", reflect.ValueOf(s).Elem())
+	return t.transdecode(name, reflect.ValueOf(s).Elem())
 }
 
 // transdecode is doing the heavy lifting in the background
 func (t *transdecoder) transdecode(name string, val reflect.Value) error {
 	var err error
-	valKind := getKind(val)
+	valKind := getKind(reflect.Indirect(val))
 	switch valKind {
 	case reflect.String:
 		err = t.transdecodeString(name, val)
@@ -86,7 +86,7 @@ func (t *transdecoder) transdecode(name string, val reflect.Value) error {
 	case reflect.Float32:
 		err = t.transdecodeFloat(name, val)
 	case reflect.Struct:
-		err = t.transdecodeStruct(val)
+		err = t.transdecodeStruct(name, val)
 	// case reflect.Slice:
 	// 	err = t.transdecodeSlice(name, val)
 	default:
@@ -223,7 +223,7 @@ func (t *transdecoder) transdecodeFloat(name string, val reflect.Value) error {
 }
 
 // transdecodeStruct
-func (t *transdecoder) transdecodeStruct(val reflect.Value) error {
+func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 	valInterface := reflect.Indirect(val)
 	valType := valInterface.Type()
 
@@ -275,6 +275,10 @@ func (t *transdecoder) transdecodeStruct(val reflect.Value) error {
 		tag = strings.SplitN(tag, ",", 2)[0]
 		if tag != "" {
 			kv = tag
+		}
+
+		if name != "" {
+			kv = strings.Join([]string{name, kv}, "/")
 		}
 
 		if !val.CanSet() {

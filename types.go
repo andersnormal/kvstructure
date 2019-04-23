@@ -4,12 +4,12 @@ import "github.com/docker/libkv/store"
 
 // Transcoder is the interface to a transcoder
 type Transcoder interface {
-	Transcode(interface{}) error
+	Transcode(string, interface{}) error
 }
 
 // Transdecoder is the interface to a transdecoder
 type Transdecoder interface {
-	Transdecode(interface{}) error
+	Transdecode(string, interface{}) error
 }
 
 // TransdecoderOpt ...

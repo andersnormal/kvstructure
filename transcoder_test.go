@@ -19,14 +19,14 @@ type Test struct {
 
 func TestTranscodeStruct(t *testing.T) {
 	s := &mm.Mock{}
-	s.On("Put", "foo/description", []byte("bar"), mock.Anything).Return(nil)
-	s.On("Put", "foo/condition", []byte(fmt.Sprint("true")), mock.Anything).Return(nil)
+	s.On("Put", "prefix/foo/description", []byte("bar"), mock.Anything).Return(nil)
+	s.On("Put", "prefix/foo/condition", []byte(fmt.Sprint("true")), mock.Anything).Return(nil)
 
 	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
 
 	td, err := NewTranscoder(
 		TranscoderWithKV(kv),
-		TranscoderWithPrefix("foo"),
+		TranscoderWithPrefix("prefix"),
 	)
 
 	tt := &Test{
@@ -36,6 +36,101 @@ func TestTranscodeStruct(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	err = td.Transcode(&tt)
+	err = td.Transcode("foo", &tt)
+	assert.NoError(t, err)
+}
+
+func TestTranscodeString(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("Put", "prefix/foo", []byte("bar"), mock.Anything).Return(nil)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+	)
+
+	tt := "bar"
+
+	assert.NoError(t, err)
+
+	err = td.Transcode("foo", &tt)
+	assert.NoError(t, err)
+}
+
+func TestTranscodeInt(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("Put", "prefix/foo", []byte(fmt.Sprint(999)), mock.Anything).Return(nil)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+	)
+
+	tt := 999
+
+	assert.NoError(t, err)
+
+	err = td.Transcode("foo", &tt)
+	assert.NoError(t, err)
+}
+
+func TestTranscodeUint(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("Put", "prefix/foo", []byte(fmt.Sprint(uint(999))), mock.Anything).Return(nil)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+	)
+
+	tt := uint(999)
+
+	assert.NoError(t, err)
+
+	err = td.Transcode("foo", &tt)
+	assert.NoError(t, err)
+}
+
+func TestTranscodeUint64(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("Put", "prefix/foo", []byte(fmt.Sprint(uint64(999))), mock.Anything).Return(nil)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+	)
+
+	tt := uint64(999)
+
+	assert.NoError(t, err)
+
+	err = td.Transcode("foo", &tt)
+	assert.NoError(t, err)
+}
+
+func TestTranscodeFloat32(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("Put", "prefix/foo", []byte(fmt.Sprint(float64(9.999))), mock.Anything).Return(nil)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+	)
+
+	tt := float64(9.999)
+
+	assert.NoError(t, err)
+
+	err = td.Transcode("foo", &tt)
 	assert.NoError(t, err)
 }

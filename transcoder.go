@@ -12,7 +12,7 @@ import (
 )
 
 // Transcode takes an initialized interface and puts the data in a kv
-func Transcode(s interface{}, prefix string, kv store.Store) error {
+func Transcode(name string, s interface{}, prefix string, kv store.Store) error {
 	transcoder, err := NewTranscoder(
 		TranscoderWithKV(kv),
 		TranscoderWithPrefix(prefix),
@@ -21,7 +21,7 @@ func Transcode(s interface{}, prefix string, kv store.Store) error {
 		return err
 	}
 
-	return transcoder.Transcode(s)
+	return transcoder.Transcode(name, s)
 }
 
 // NewTranscoder returns a new transcoder for the given configuration.
@@ -53,7 +53,7 @@ func TranscoderWithKV(kv store.Store) func(o *TranscoderOpts) {
 }
 
 // Transcode is transcoding a given raw value interface to data in a kv store
-func (t *transcoder) Transcode(s interface{}) error {
+func (t *transcoder) Transcode(name string, s interface{}) error {
 	val := reflect.ValueOf(s)
 	if val.Kind() != reflect.Ptr {
 		return errors.New("kvstructure: interface must be a pointer")
@@ -64,7 +64,7 @@ func (t *transcoder) Transcode(s interface{}) error {
 		return errors.New("kvstructure: interface must be addressable (a pointer)")
 	}
 
-	return t.transcode("", reflect.ValueOf(s).Elem())
+	return t.transcode(name, reflect.ValueOf(s).Elem())
 }
 
 // transcode is doing the heavy lifting in the background
@@ -78,10 +78,10 @@ func (t *transcoder) transcode(name string, val reflect.Value) error {
 		err = t.transcodeBool(name, val)
 	case reflect.Int:
 		err = t.transcodeInt(name, val)
-	// case reflect.Uint:
-	// 	err = t.transcodeUint(name, val)
-	// case reflect.Float32:
-	// 	err = t.transcodeFloat(name, val)
+	case reflect.Uint:
+		err = t.transcodeUint(name, val)
+	case reflect.Float32:
+		err = t.transcodeFloat(name, val)
 	case reflect.Struct:
 		err = t.transcodeStruct(name, val)
 	// doesnt make sense
@@ -113,7 +113,7 @@ func (t *transcoder) transcodeInt(name string, val reflect.Value) error {
 
 // transdecodeUint
 func (t *transcoder) transcodeUint(name string, val reflect.Value) error {
-	return nil
+	return t.putKVPair(name, []byte(fmt.Sprint(val)))
 }
 
 // transdecodeFloat
