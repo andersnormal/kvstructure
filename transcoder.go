@@ -32,9 +32,9 @@ func Transcode(name string, s interface{}, prefix string, kv store.Store) error 
 //		TranscoderWithPrefix("prefix"),
 //	)
 //
-//    if err != nil {
-//       return err
-//    }
+//  if err != nil {
+//  	return err
+//  }
 //
 //	tt := &Example{
 //		Description: "bar",
@@ -42,7 +42,7 @@ func Transcode(name string, s interface{}, prefix string, kv store.Store) error 
 //	}
 //
 //	if err := transcoder.Transcode("foo", &tt) {
-//        return err
+//   	return err
 //  }
 func NewTranscoder(opts ...TranscoderOpt) (Transcoder, error) {
 	options := new(TranscoderOpts)
