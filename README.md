@@ -6,11 +6,29 @@
 [![Volkswagen](https://auchenberg.github.io/volkswagen/volkswargen_ci.svg?v=1)](https://github.com/auchenberg/volkswagen)
 [![Go Report Card](https://goreportcard.com/badge/github.com/andersnormal/kvstructure)](https://goreportcard.com/report/github.com/andersnormal/kvstructure)
 
-Go library for transcoding data from KVs supported by [libkv](https://github.com/docker/libkv) to `structs` and vice versa.
+Go library for transcoding data from KVs supported by [libkv](https://github.com/docker/libkv) to `structs`, `string`, `int`, `uint` and `float32` and vice versa.
 
-## Getting Started
+## Example
 
+```golang
+	transcoder, err := NewTranscoder(
+		TranscoderWithKV(kv),
+		TranscoderWithPrefix("prefix"),
+    )
+    
+    if err != nil {
+        return err
+    }
 
+	tt := &Example{
+		Description: "bar",
+		Enabled: true,
+	}
+
+	if err := transcoder.Transcode("foo", &tt) {
+        return err
+    }
+```
 
 ## License
 [Apache 2.0](/LICENSE)
