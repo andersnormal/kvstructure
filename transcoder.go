@@ -25,7 +25,25 @@ func Transcode(name string, s interface{}, prefix string, kv store.Store) error 
 }
 
 // NewTranscoder returns a new transcoder for the given configuration.
-// Once a transcoder has been returned, the same interface must be used
+// Once a transcoder has been returned, the same interface must be used.
+//
+//  transcoder, err := NewTranscoder(
+//		TranscoderWithKV(kv),
+//		TranscoderWithPrefix("prefix"),
+//	)
+//
+//    if err != nil {
+//       return err
+//    }
+//
+//	tt := &Example{
+//		Description: "bar",
+//		Enabled: true,
+//	}
+//
+//	if err := transcoder.Transcode("foo", &tt) {
+//        return err
+//  }
 func NewTranscoder(opts ...TranscoderOpt) (Transcoder, error) {
 	options := new(TranscoderOpts)
 

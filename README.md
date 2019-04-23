@@ -11,23 +11,23 @@ Go library for transcoding data from KVs supported by [libkv](https://github.com
 ## Example
 
 ```golang
-	transcoder, err := NewTranscoder(
-		TranscoderWithKV(kv),
-		TranscoderWithPrefix("prefix"),
-    )
+transcoder, err := NewTranscoder(
+	TranscoderWithKV(kv),
+	TranscoderWithPrefix("prefix"),
+)
     
-    if err != nil {
-        return err
-    }
+if err != nil {
+    return err
+}
 
-	tt := &Example{
-		Description: "bar",
-		Enabled: true,
-	}
+tt := &Example{
+	Description: "bar",
+	Enabled: true,
+}
 
-	if err := transcoder.Transcode("foo", &tt) {
-        return err
-    }
+if err := transcoder.Transcode("foo", &tt) {
+    return err
+}
 ```
 
 ## License
