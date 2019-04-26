@@ -102,9 +102,9 @@ func (t *transcoder) transcode(name string, val reflect.Value) error {
 		err = t.transcodeFloat(name, val)
 	case reflect.Struct:
 		err = t.transcodeStruct(name, val)
-	// doesnt make sense
-	// case reflect.Slice:
-	// 	err = t.transcodeSlice(name, val)
+	case reflect.Slice:
+		// silent do nothing
+		// 	err = t.transcodeSlice(name, val)
 	default:
 		// we have to work on here for value to pointed to
 		return fmt.Errorf("kvstructure: unsupported type %s", valKind)

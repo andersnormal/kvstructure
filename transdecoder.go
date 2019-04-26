@@ -87,8 +87,9 @@ func (t *transdecoder) transdecode(name string, val reflect.Value) error {
 		err = t.transdecodeFloat(name, val)
 	case reflect.Struct:
 		err = t.transdecodeStruct(name, val)
-	// case reflect.Slice:
-	// 	err = t.transdecodeSlice(name, val)
+	case reflect.Slice:
+		// silent do nothing
+		// 	err = t.transdecodeSlice(name, val)
 	default:
 		// we have to work on here for value to pointed to
 		return fmt.Errorf("kvstructure: unsupported type %s", valKind)
@@ -269,7 +270,7 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 
 	for _, f := range fields {
 		field, val, isJSON := f.field, f.val, f.json
-		kv := field.Name
+		kv := strings.ToLower(field.Name)
 
 		tag := field.Tag.Get(t.opts.TagName)
 		tag = strings.SplitN(tag, ",", 2)[0]
