@@ -28,6 +28,13 @@ func TestTransdecodeStruct(t *testing.T) {
 		},
 		nil,
 	)
+	s.On("Get", "prefix/foo/proto").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/proto",
+			Value: []byte(fmt.Sprint("\"\"")),
+		},
+		nil,
+	)
 
 	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
 

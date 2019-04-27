@@ -13,14 +13,18 @@ import (
 )
 
 type Test struct {
-	Desc string `kvstructure:"description"`
-	Cond bool   `kvstructure:"condition"`
+	Desc     string `kvstructure:"description,omitempty"`
+	Cond     bool   `kvstructure:"condition" json:"peer,omitempty"`
+	Proto    string `protobuf:"bytes,1,opt,name=proto,proto3" json:"proto"`
+	WithOmit string `json:"with_omit,omitempty"`
+	Ignore   string `json:"-"`
 }
 
 func TestTranscodeStruct(t *testing.T) {
 	s := &mm.Mock{}
 	s.On("Put", "prefix/foo/description", []byte("bar"), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/condition", []byte(fmt.Sprint("true")), mock.Anything).Return(nil)
+	s.On("Put", "prefix/foo/proto", []byte(fmt.Sprint("\"\"")), mock.Anything).Return(nil)
 
 	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
 

@@ -256,12 +256,9 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 			isJSON := false
 			// fieldKind := fieldType.Type.Kind()
 
-			tagParts := strings.Split(fieldType.Tag.Get(t.opts.TagName), ",")
-			for _, tag := range tagParts[1:] {
-				// test here for squashing
-				if tag == "json" {
-					isJSON = true
-				}
+			// detected if this field is json
+			if fieldType.Tag.Get("json") != "" {
+				isJSON = true
 			}
 
 			fields = append(fields, field{fieldType, structVal.Field(i), isJSON})
@@ -289,11 +286,17 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 		}
 
 		// we deal with
-		if isJSON {
+		if isJSON && tag == "" {
 			// remove field from group
 			wg.Done()
 
 			if !val.CanAddr() {
+				continue
+			}
+
+			// check if we have to omit
+			tag := field.Tag.Get("json")
+			if strings.Contains(tag, "omitempty") || tag == "-" {
 				continue
 			}
 

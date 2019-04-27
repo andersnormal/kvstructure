@@ -11,6 +11,10 @@ import (
 	"github.com/docker/libkv/store"
 )
 
+const (
+	defaultTagName = "kvstructure"
+)
+
 // Transcode takes an initialized interface and puts the data in a kv
 func Transcode(name string, s interface{}, prefix string, kv store.Store) error {
 	transcoder, err := NewTranscoder(
@@ -169,12 +173,9 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 			fieldType := valType.Field(i)
 			isJSON := false
 
-			tagParts := strings.Split(fieldType.Tag.Get(t.opts.TagName), ",")
-			for _, tag := range tagParts[1:] {
-				// test here for squashing
-				if tag == "json" {
-					isJSON = true
-				}
+			// detected if this field is json
+			if fieldType.Tag.Get("json") != "" {
+				isJSON = true
 			}
 
 			fields = append(fields, field{fieldType, structVal.Elem().Field(i), isJSON})
@@ -202,12 +203,18 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 			continue
 		}
 
-		// 	// we deal with
-		if isJSON {
+		// we try to deal with json here
+		if isJSON && tag == "" {
 			// remove field from group
 			wg.Done()
 
 			if !val.CanAddr() {
+				continue
+			}
+
+			// check if we have to omit
+			tag := field.Tag.Get("json")
+			if strings.Contains(tag, "omitempty") || tag == "-" {
 				continue
 			}
 
@@ -267,7 +274,7 @@ func configureTranscoder(t *transcoder, opts ...TranscoderOpt) error {
 	}
 
 	if t.opts.TagName == "" {
-		t.opts.TagName = "kvstructure"
+		t.opts.TagName = defaultTagName
 	}
 
 	return nil
