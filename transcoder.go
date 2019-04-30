@@ -152,7 +152,7 @@ func (t *transcoder) transcodeSlice(name string, val reflect.Value) error {
 	}
 
 	// delete the tree below
-	if err := t.deleteTree(name); err != nil {
+	if err := t.deleteTree(name); err != nil && err != store.ErrKeyNotFound {
 		return err
 	}
 
