@@ -234,7 +234,7 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 
 			// check if we have to omit
 			tag := field.Tag.Get("json")
-			if strings.Contains(tag, "omitempty") || tag == "-" {
+			if tag == "-" {
 				continue
 			}
 

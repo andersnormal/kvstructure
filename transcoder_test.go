@@ -26,9 +26,11 @@ func TestTranscodeStruct(t *testing.T) {
 	s.On("Put", "prefix/foo/description", []byte("bar"), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/condition", []byte(fmt.Sprint("true")), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/proto", []byte(fmt.Sprint("\"\"")), mock.Anything).Return(nil)
+	s.On("Put", "prefix/foo/withomit", []byte(fmt.Sprint("\"\"")), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/tests/0/description", []byte("bar"), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/tests/0/condition", []byte(fmt.Sprint("true")), mock.Anything).Return(nil)
 	s.On("Put", "prefix/foo/tests/0/proto", []byte(fmt.Sprint("\"\"")), mock.Anything).Return(nil)
+	s.On("Put", "prefix/foo/tests/0/withomit", []byte(fmt.Sprint("\"\"")), mock.Anything).Return(nil)
 	s.On("DeleteTree", "prefix/foo/tests", mock.Anything).Return(nil)
 
 	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})

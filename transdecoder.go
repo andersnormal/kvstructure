@@ -307,13 +307,13 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 				continue
 			}
 
-			if len(kvPair.Value) == 0 && strings.Contains(tag, "omitempty") {
-				continue
-			}
-
 			obj := reflect.New(field.Type).Interface()
 			if err := json.Unmarshal(kvPair.Value, &obj); err != nil {
 				errors = append(errors, err)
+			}
+
+			if obj == nil {
+				continue
 			}
 
 			val.Set(reflect.ValueOf(obj).Elem())
