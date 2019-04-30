@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	// "path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -89,7 +90,7 @@ func (t *transdecoder) transdecode(name string, val reflect.Value) error {
 		err = t.transdecodeStruct(name, val)
 	case reflect.Slice:
 		// silent do nothing
-		// 	err = t.transdecodeSlice(name, val)
+		err = t.transdecodeSlice(name, val)
 	default:
 		// we have to work on here for value to pointed to
 		return fmt.Errorf("kvstructure: unsupported type %s", valKind)
@@ -329,6 +330,52 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 	return nil
 }
 
+// transdecodeSlice
+func (t *transdecoder) transdecodeSlice(name string, val reflect.Value) error {
+	kvPairs, err := t.listKVPairs(name)
+	if err != nil {
+		return err
+	}
+
+	s := reflect.MakeSlice(val.Type(), len(kvPairs), len(kvPairs))
+	val.Set(s)
+
+	// todo: this can be more efficient, because this is costly
+	for i, v := range kvPairs {
+		kind := getKind(val.Index(i))
+		switch kind {
+		case reflect.Ptr:
+			val.Index(i).Set(reflect.New(val.Index(i).Type().Elem()))
+			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i).Elem())
+
+		case reflect.String:
+			fallthrough
+		case reflect.Bool:
+			fallthrough
+		case reflect.Int:
+			fallthrough
+		case reflect.Uint:
+			fallthrough
+		case reflect.Float32:
+			fallthrough
+		case reflect.Slice:
+			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i))
+		default:
+			return fmt.Errorf("'%s' got unconvertible type '%s'", name, val.Type())
+		}
+	}
+
+	return nil
+}
+
+func like(like interface{}) interface{} {
+	typ := reflect.TypeOf(like)
+	one := reflect.New(typ)
+
+	return one.Interface()
+}
+
+// getKVPair
 func (t *transdecoder) getKVPair(key string) (*store.KVPair, error) {
 	kvPair, err := t.opts.KV.Get(trailingSlash(t.opts.Prefix) + key)
 	if err != nil {
@@ -336,6 +383,15 @@ func (t *transdecoder) getKVPair(key string) (*store.KVPair, error) {
 	}
 
 	return kvPair, nil
+}
+
+func (t *transdecoder) listKVPairs(key string) ([]*store.KVPair, error) {
+	kvPairs, err := t.opts.KV.List(trailingSlash(t.opts.Prefix) + key)
+	if err != nil {
+		return nil, err
+	}
+
+	return kvPairs, nil
 }
 
 // getKind is returning the kind of the reflected value

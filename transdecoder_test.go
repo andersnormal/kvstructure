@@ -31,8 +31,42 @@ func TestTransdecodeStruct(t *testing.T) {
 	s.On("Get", "prefix/foo/proto").Return(
 		&store.KVPair{
 			Key:   "prefix/foo/proto",
-			Value: []byte(fmt.Sprint("\"\"")),
+			Value: []byte(""),
 		},
+		nil,
+	)
+	s.On("List", "prefix/foo/tests").Return(
+		[]*store.KVPair{
+			&store.KVPair{
+				Key:   "prefix/foo/tests/0",
+				Value: []byte(fmt.Sprint("foo")),
+			},
+		},
+		nil,
+	)
+	s.On("Get", "prefix/foo/tests/0/proto").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/tests/0/proto",
+			Value: []byte("bar"),
+		},
+		nil,
+	)
+	s.On("Get", "prefix/foo/tests/0/description").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/tests/0/description",
+			Value: []byte(""),
+		},
+		nil,
+	)
+	s.On("Get", "prefix/foo/tests/0/condition").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/tests/0/condition",
+			Value: []byte(fmt.Sprint("true")),
+		},
+		nil,
+	)
+	s.On("List", "prefix/foo/tests/0/tests").Return(
+		[]*store.KVPair{},
 		nil,
 	)
 
@@ -51,6 +85,8 @@ func TestTransdecodeStruct(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, true, tt.Cond)
 	assert.Equal(t, "bar", tt.Desc)
+	assert.Len(t, tt.Tests, 1)
+	assert.ElementsMatch(t, tt.Tests, []*Test{&Test{Cond: true, Tests: make([]*Test, 0)}})
 }
 
 func TestTransdecodeString(t *testing.T) {
@@ -129,4 +165,52 @@ func TestTransdecodeFloat32(t *testing.T) {
 	err = td.Transdecode("foo", &tt)
 	assert.NoError(t, err)
 	assert.Equal(t, float32(9.999), tt)
+}
+
+func TestTransdecodeSlice(t *testing.T) {
+	s := &mm.Mock{}
+	s.On("List", "prefix/foo").Return(
+		[]*store.KVPair{
+			&store.KVPair{
+				Key:   "prefix/foo/0",
+				Value: []byte(fmt.Sprint("foo")),
+			},
+			&store.KVPair{
+				Key:   "prefix/foo/1",
+				Value: []byte(fmt.Sprint("bar")),
+			},
+		},
+		nil,
+	)
+
+	s.On("Get", "prefix/foo/0").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/0",
+			Value: []byte(fmt.Sprint("foo")),
+		},
+		nil,
+	)
+
+	s.On("Get", "prefix/foo/1").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/1",
+			Value: []byte(fmt.Sprint("bar")),
+		},
+		nil,
+	)
+
+	kv, _ := mm.New(s, []string{"localhost"}, &store.Config{})
+
+	td, err := NewTransdecoder(
+		TransdecoderWithKV(kv),
+		TransdecoderWithPrefix("prefix"),
+	)
+
+	var tt []string
+
+	assert.NoError(t, err)
+
+	err = td.Transdecode("foo", &tt)
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"foo", "bar"}, tt)
 }

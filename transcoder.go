@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -108,7 +109,7 @@ func (t *transcoder) transcode(name string, val reflect.Value) error {
 		err = t.transcodeStruct(name, val)
 	case reflect.Slice:
 		// silent do nothing
-		// 	err = t.transcodeSlice(name, val)
+		err = t.transcodeSlice(name, val)
 	default:
 		// we have to work on here for value to pointed to
 		return fmt.Errorf("kvstructure: unsupported type %s", valKind)
@@ -140,6 +141,25 @@ func (t *transcoder) transcodeUint(name string, val reflect.Value) error {
 
 // transdecodeFloat
 func (t *transcoder) transcodeFloat(name string, val reflect.Value) error {
+	return nil
+}
+
+// transcodeSlice
+func (t *transcoder) transcodeSlice(name string, val reflect.Value) error {
+	// if nothing is in the slice
+	if val.Len() == 0 {
+		return nil
+	}
+
+	// delete the tree below
+	if err := t.deleteTree(name); err != nil {
+		return err
+	}
+
+	for i := 0; i < val.Len(); i++ {
+		t.transcode(strings.Join([]string{name, strconv.Itoa(i)}, "/"), val.Index(i))
+	}
+
 	return nil
 }
 
@@ -255,6 +275,11 @@ func (t *transcoder) transdecodeBasic(val reflect.Value) error {
 // putKVPair
 func (t *transcoder) putKVPair(key string, value []byte) error {
 	return t.opts.KV.Put(trailingSlash(t.opts.Prefix)+key, value, nil)
+}
+
+// deleteTree
+func (t *transcoder) deleteTree(key string) error {
+	return t.opts.KV.DeleteTree(trailingSlash(t.opts.Prefix) + key)
 }
 
 // configureTranscoder
