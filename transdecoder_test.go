@@ -28,6 +28,13 @@ func TestTransdecodeStruct(t *testing.T) {
 		},
 		nil,
 	)
+	s.On("Get", "prefix/foo/withomit").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/withomit",
+			Value: []byte{},
+		},
+		nil,
+	)
 	s.On("Get", "prefix/foo/proto").Return(
 		&store.KVPair{
 			Key:   "prefix/foo/proto",
@@ -62,6 +69,13 @@ func TestTransdecodeStruct(t *testing.T) {
 		&store.KVPair{
 			Key:   "prefix/foo/tests/0/condition",
 			Value: []byte(fmt.Sprint("true")),
+		},
+		nil,
+	)
+	s.On("Get", "prefix/foo/tests/0/withomit").Return(
+		&store.KVPair{
+			Key:   "prefix/foo/tests/0/withomit",
+			Value: []byte{},
 		},
 		nil,
 	)

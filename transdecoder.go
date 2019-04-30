@@ -297,13 +297,17 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 
 			// check if we have to omit
 			tag := field.Tag.Get("json")
-			if strings.Contains(tag, "omitempty") || tag == "-" {
+			if tag == "-" {
 				continue
 			}
 
 			kvPair, err := t.getKVPair(kv)
 			if err != nil {
 				errors = append(errors, err)
+				continue
+			}
+
+			if len(kvPair.Value) == 0 && strings.Contains(tag, "omitempty") {
 				continue
 			}
 
