@@ -1,15 +1,16 @@
 package kvstructure
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/docker/libkv/store"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -168,10 +169,11 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 	valInterface := reflect.Indirect(val)
 	valType := valInterface.Type()
 
-	var wg sync.WaitGroup
-	wg.Add(valType.NumField())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	errors := make([]error, 0)
+	// create an errgroup to trace the latest error and return
+	g, _ := errgroup.WithContext(ctx)
 
 	// The slice will keep track of all structs we'll be transcoding.
 	// There can be more structs, if we have embedded structs that are squashed.
@@ -218,16 +220,11 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 		}
 
 		if !val.CanAddr() {
-			wg.Done()
-
 			continue
 		}
 
 		// we try to deal with json here
 		if isJSON && tag == "" {
-			// remove field from group
-			wg.Done()
-
 			if !val.CanAddr() {
 				continue
 			}
@@ -238,30 +235,35 @@ func (t *transcoder) transcodeStruct(name string, val reflect.Value) error {
 				continue
 			}
 
-			b, err := json.Marshal(val.Interface())
-			if err != nil {
-				errors = append(errors, err)
-				continue
-			}
+			g.Go(func() error {
+				b, err := json.Marshal(val.Interface())
+				if err != nil {
+					return fmt.Errorf("'%s' field got : %s", field.Name, err)
+				}
 
-			// write to kv
-			if err := t.putKVPair(kv, b); err != nil {
-				errors = append(errors, err)
-			}
+				// write to kv
+				if err := t.putKVPair(kv, b); err != nil {
+					return fmt.Errorf("'%s' field got : %s", field.Name, err)
+				}
+
+				return nil
+			})
 
 			continue
 		}
 
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 			if err := t.transcode(kv, val); err != nil {
-				errors = append(errors, err)
+				return err
 			}
-		}()
 
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
 
 	return nil
 }

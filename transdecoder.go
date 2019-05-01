@@ -307,7 +307,7 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 				// if there is no kvPair
 				kvPair, err := t.getKVPair(kv, nil)
 				if err != nil {
-					return err
+					return fmt.Errorf("'%s' field got : %s", field.Name, err)
 				}
 
 				obj := reflect.New(field.Type).Interface()
