@@ -1,16 +1,16 @@
 package kvstructure
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	// "path"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/docker/libkv/store"
+	"golang.org/x/sync/errgroup"
 )
 
 // Transdecode takes an interface and uses reflection
@@ -68,24 +68,24 @@ func (t *transdecoder) Transdecode(name string, s interface{}) error {
 		return errors.New("kvstructure: interface must be addressable (a pointer)")
 	}
 
-	return t.transdecode(name, reflect.ValueOf(s).Elem())
+	return t.transdecode(name, reflect.ValueOf(s).Elem(), nil)
 }
 
 // transdecode is doing the heavy lifting in the background
-func (t *transdecoder) transdecode(name string, val reflect.Value) error {
+func (t *transdecoder) transdecode(name string, val reflect.Value, kvPair *store.KVPair) error {
 	var err error
 	valKind := getKind(reflect.Indirect(val))
 	switch valKind {
 	case reflect.String:
-		err = t.transdecodeString(name, val)
+		err = t.transdecodeString(name, val, kvPair)
 	case reflect.Bool:
-		err = t.transdecodeBool(name, val)
+		err = t.transdecodeBool(name, val, kvPair)
 	case reflect.Int:
-		err = t.transdecodeInt(name, val)
+		err = t.transdecodeInt(name, val, kvPair)
 	case reflect.Uint:
-		err = t.transdecodeUint(name, val)
+		err = t.transdecodeUint(name, val, kvPair)
 	case reflect.Float32:
-		err = t.transdecodeFloat(name, val)
+		err = t.transdecodeFloat(name, val, kvPair)
 	case reflect.Struct:
 		err = t.transdecodeStruct(name, val)
 	case reflect.Slice:
@@ -107,11 +107,12 @@ func (t *transdecoder) transdecodeBasic(val reflect.Value) error {
 }
 
 // transdecodeString
-func (t *transdecoder) transdecodeString(name string, val reflect.Value) error {
-	kvPair, err := t.getKVPair(name)
+func (t *transdecoder) transdecodeString(name string, val reflect.Value, kvPair *store.KVPair) error {
+	kvPair, err := t.getKVPair(name, kvPair)
 	if err != nil {
 		return err
 	}
+
 	kvVal := string(kvPair.Value)
 
 	conv := true
@@ -131,11 +132,12 @@ func (t *transdecoder) transdecodeString(name string, val reflect.Value) error {
 }
 
 // transdecodeBool
-func (t *transdecoder) transdecodeBool(name string, val reflect.Value) error {
-	kvPair, err := t.getKVPair(name)
+func (t *transdecoder) transdecodeBool(name string, val reflect.Value, kvPair *store.KVPair) error {
+	kvPair, err := t.getKVPair(name, kvPair)
 	if err != nil {
 		return err
 	}
+
 	kvVal := string(kvPair.Value)
 
 	switch {
@@ -153,11 +155,12 @@ func (t *transdecoder) transdecodeBool(name string, val reflect.Value) error {
 }
 
 // transdecodeInt
-func (t *transdecoder) transdecodeInt(name string, val reflect.Value) error {
-	kvPair, err := t.getKVPair(name)
+func (t *transdecoder) transdecodeInt(name string, val reflect.Value, kvPair *store.KVPair) error {
+	kvPair, err := t.getKVPair(name, kvPair)
 	if err != nil {
 		return err
 	}
+
 	kvVal := string(kvPair.Value)
 
 	switch {
@@ -181,11 +184,12 @@ func (t *transdecoder) transdecodeInt(name string, val reflect.Value) error {
 }
 
 // transdecodeUint
-func (t *transdecoder) transdecodeUint(name string, val reflect.Value) error {
-	kvPair, err := t.getKVPair(name)
+func (t *transdecoder) transdecodeUint(name string, val reflect.Value, kvPair *store.KVPair) error {
+	kvPair, err := t.getKVPair(name, kvPair)
 	if err != nil {
 		return err
 	}
+
 	kvVal := string(kvPair.Value)
 
 	switch {
@@ -203,11 +207,12 @@ func (t *transdecoder) transdecodeUint(name string, val reflect.Value) error {
 }
 
 // transdecodeFloat32
-func (t *transdecoder) transdecodeFloat(name string, val reflect.Value) error {
-	kvPair, err := t.getKVPair(name)
+func (t *transdecoder) transdecodeFloat(name string, val reflect.Value, kvPair *store.KVPair) error {
+	kvPair, err := t.getKVPair(name, kvPair)
 	if err != nil {
 		return err
 	}
+
 	kvVal := string(kvPair.Value)
 
 	switch {
@@ -229,10 +234,11 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 	valInterface := reflect.Indirect(val)
 	valType := valInterface.Type()
 
-	var wg sync.WaitGroup
-	wg.Add(valType.NumField())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	errors := make([]error, 0)
+	// create an errgroup to trace the latest error and return
+	g, _ := errgroup.WithContext(ctx)
 
 	// The slice will keep track of all structs we'll be transcoding.
 	// There can be more structs, if we have embedded structs that are squashed.
@@ -267,6 +273,7 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 	}
 
 	for _, f := range fields {
+		f := f
 		field, val, isJSON := f.field, f.val, f.json
 		kv := strings.ToLower(field.Name)
 
@@ -281,16 +288,11 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 		}
 
 		if !val.CanSet() {
-			wg.Done()
-
 			continue
 		}
 
 		// we deal with
 		if isJSON && tag == "" {
-			// remove field from group
-			wg.Done()
-
 			if !val.CanAddr() {
 				continue
 			}
@@ -301,35 +303,42 @@ func (t *transdecoder) transdecodeStruct(name string, val reflect.Value) error {
 				continue
 			}
 
-			kvPair, err := t.getKVPair(kv)
-			if err != nil {
-				errors = append(errors, err)
-				continue
-			}
+			g.Go(func() error {
+				// if there is no kvPair
+				kvPair, err := t.getKVPair(kv, nil)
+				if err != nil {
+					return err
+				}
 
-			obj := reflect.New(field.Type).Interface()
-			if err := json.Unmarshal(kvPair.Value, &obj); err != nil {
-				errors = append(errors, err)
-			}
+				obj := reflect.New(field.Type).Interface()
+				if err := json.Unmarshal(kvPair.Value, &obj); err != nil {
+					return fmt.Errorf("'%s' field got : %s", field.Name, err)
+				}
 
-			if obj == nil {
-				continue
-			}
+				if obj == nil {
+					return nil
+				}
 
-			val.Set(reflect.ValueOf(obj).Elem())
+				val.Set(reflect.ValueOf(obj).Elem())
+
+				return nil
+			})
 
 			continue
 		}
 
-		go func() {
-			defer wg.Done()
-			if err := t.transdecode(kv, val); err != nil {
-				errors = append(errors, err)
+		g.Go(func() error {
+			if err := t.transdecode(kv, val, nil); err != nil {
+				return err
 			}
-		}()
+
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -350,8 +359,7 @@ func (t *transdecoder) transdecodeSlice(name string, val reflect.Value) error {
 		switch kind {
 		case reflect.Ptr:
 			val.Index(i).Set(reflect.New(val.Index(i).Type().Elem()))
-			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i).Elem())
-
+			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i).Elem(), nil)
 		case reflect.String:
 			fallthrough
 		case reflect.Bool:
@@ -363,7 +371,7 @@ func (t *transdecoder) transdecodeSlice(name string, val reflect.Value) error {
 		case reflect.Float32:
 			fallthrough
 		case reflect.Slice:
-			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i))
+			t.transdecode(strings.Replace(v.Key, trailingSlash(t.opts.Prefix), "", -1), val.Index(i), v)
 		default:
 			return fmt.Errorf("'%s' got unconvertible type '%s'", name, val.Type())
 		}
@@ -380,8 +388,14 @@ func like(like interface{}) interface{} {
 }
 
 // getKVPair
-func (t *transdecoder) getKVPair(key string) (*store.KVPair, error) {
-	kvPair, err := t.opts.KV.Get(trailingSlash(t.opts.Prefix) + key)
+func (t *transdecoder) getKVPair(key string, kvPair *store.KVPair) (*store.KVPair, error) {
+	var err error
+
+	if kvPair != nil {
+		return kvPair, nil
+	}
+
+	kvPair, err = t.opts.KV.Get(trailingSlash(t.opts.Prefix) + key)
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +445,7 @@ func configureTransdecoder(t *transdecoder, opts ...TransdecoderOpt) error {
 	}
 
 	if t.opts.TagName == "" {
-		t.opts.TagName = "kvstructure"
+		t.opts.TagName = defaultTagName
 	}
 
 	return nil

@@ -9,7 +9,6 @@ import (
 
 	"github.com/docker/libkv/store"
 	"github.com/stretchr/testify/assert"
-	// "github.com/stretchr/testify/mock"
 )
 
 func TestTransdecodeStruct(t *testing.T) {
@@ -31,14 +30,14 @@ func TestTransdecodeStruct(t *testing.T) {
 	s.On("Get", "prefix/foo/withomit").Return(
 		&store.KVPair{
 			Key:   "prefix/foo/withomit",
-			Value: []byte{},
+			Value: []byte("\"\""),
 		},
 		nil,
 	)
 	s.On("Get", "prefix/foo/proto").Return(
 		&store.KVPair{
 			Key:   "prefix/foo/proto",
-			Value: []byte(""),
+			Value: []byte("\"\""),
 		},
 		nil,
 	)
